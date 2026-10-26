@@ -14,6 +14,7 @@ all: controller packet edges integration
 	@echo "======================================"
 
 controller:
+	mkdir -p $(BUILD_DIR)/obj_dir
 	$(VERILATOR) $(COMMON_FLAGS) \
 		--top-module tb_link_ctrl \
 		$(CTRL_RTL) tb/tb_link_ctrl.sv \
@@ -21,6 +22,7 @@ controller:
 	./$(BUILD_DIR)/obj_dir/Vtb_link_ctrl
 
 packet:
+	mkdir -p $(BUILD_DIR)/packet_obj_dir
 	$(VERILATOR) $(COMMON_FLAGS) \
 		--top-module tb_packet_channel \
 		$(PACKET_RTL) tb/tb_packet_channel.sv \
@@ -28,6 +30,7 @@ packet:
 	./$(BUILD_DIR)/packet_obj_dir/Vtb_packet_channel
 
 edges:
+	mkdir -p $(BUILD_DIR)/edges_obj_dir
 	$(VERILATOR) $(COMMON_FLAGS) \
 		--top-module tb_packet_channel_edges \
 		$(PACKET_RTL) tb/tb_packet_channel_edges.sv \
@@ -35,6 +38,7 @@ edges:
 	./$(BUILD_DIR)/edges_obj_dir/Vtb_packet_channel_edges
 
 integration:
+	mkdir -p $(BUILD_DIR)/integration_obj_dir
 	$(VERILATOR) $(COMMON_FLAGS) \
 		--top-module tb_link_integration \
 		$(CTRL_RTL) $(PACKET_RTL) \
