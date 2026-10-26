@@ -31,6 +31,19 @@ module tb_link_fault_stress;
     integer recovery_count = 0;
     integer fatal_count = 0;
 
+    // Lightweight functional coverage counters.
+    integer cov_reset = 0;
+    integer cov_training = 0;
+    integer cov_active = 0;
+    integer cov_recovery = 0;
+    integer cov_failed = 0;
+    integer cov_normal_transfer = 0;
+    integer cov_receiver_stall = 0;
+    integer cov_pending_during_recovery = 0;
+    integer cov_retrain_success = 0;
+    integer cov_reset_after_failure = 0;
+    integer cov_packet_after_reset = 0;
+
     always #5 clk <= ~clk;
 
     chiplet_link_top #(
@@ -98,26 +111,31 @@ module tb_link_fault_stress;
         // Reset and initial link training.
         repeat (2) @(negedge clk);
         check(link_state == RESET, "Initial reset state");
+        cov_reset = cov_reset + 1;
 
         rst_n = 1;
         @(negedge clk);
         check(link_state == TRAINING, "Initial training");
+        cov_training = cov_training + 1;
 
         training_done = 1;
         @(negedge clk);
         training_done = 0;
         check(link_state == ACTIVE, "Initial link activation");
+        cov_active = cov_active + 1;
         check(link_up == 1, "Link-up asserted");
 
         // Scenario 1: Normal packet transfer.
         send_packet(32'hF001_0001);
         repeat (2) @(negedge clk);
         check(received_count == 1, "Normal packet delivered");
+        cov_normal_transfer = cov_normal_transfer + 1;
 
         // Scenario 2: Queue a packet while the receiver is stalled.
         m_ready = 0;
         send_packet(32'hF001_0002);
         check(m_valid == 1, "Packet queued before recovery");
+        cov_receiver_stall = cov_receiver_stall + 1;
         check(m_data == 32'hF001_0002, "Queued payload correct");
 
         // Trigger a recoverable fault.
@@ -129,6 +147,8 @@ module tb_link_fault_stress;
         check(link_up == 0, "Link down during recovery");
         check(m_valid == 0, "Output suppressed during recovery");
         check(received_count == 1, "Queued packet not delivered prematurely");
+        cov_recovery = cov_recovery + 1;
+        cov_pending_during_recovery = cov_pending_during_recovery + 1;
 
         recovery_count = recovery_count + 1;
 
@@ -142,6 +162,7 @@ module tb_link_fault_stress;
         @(negedge clk);
         training_done = 0;
         check(link_state == ACTIVE, "Retraining succeeds");
+        cov_retrain_success = cov_retrain_success + 1;
         check(link_up == 1, "Link restored after recovery");
 
         // Deliver the preserved packet.
@@ -155,6 +176,7 @@ module tb_link_fault_stress;
         fatal_fault = 0;
 
         check(link_state == FAILED, "Fatal fault enters FAILED");
+        cov_failed = cov_failed + 1;
         check(link_up == 0, "FAILED state keeps link down");
 
         fatal_count = fatal_count + 1;
@@ -162,20 +184,25 @@ module tb_link_fault_stress;
         // Verify FAILED is sticky.
         repeat (3) @(negedge clk);
         check(link_state == FAILED, "FAILED state is sticky");
+        cov_failed = cov_failed + 1;
 
         // Scenario 4: Reset and retrain.
         rst_n = 0;
         @(negedge clk);
         check(link_state == RESET, "Reset clears FAILED state");
+        cov_reset = cov_reset + 1;
+        cov_reset_after_failure = cov_reset_after_failure + 1;
 
         rst_n = 1;
         @(negedge clk);
         check(link_state == TRAINING, "Training restarts after reset");
+        cov_training = cov_training + 1;
 
         training_done = 1;
         @(negedge clk);
         training_done = 0;
         check(link_state == ACTIVE, "Link reactivates after reset");
+        cov_active = cov_active + 1;
 
         // Fresh packet after reset.
         send_packet(32'hF001_0003);
@@ -183,6 +210,7 @@ module tb_link_fault_stress;
 
         check(accepted_count == 3, "Three packets accepted");
         check(received_count == 3, "Three packets received exactly once");
+        cov_packet_after_reset = cov_packet_after_reset + 1;
         check(m_valid == 0, "No pending packet remains");
         check(recovery_count == 1, "One recovery scenario exercised");
         check(fatal_count == 1, "One fatal-fault scenario exercised");
@@ -192,6 +220,19 @@ module tb_link_fault_stress;
         $display("Received packets : %0d", received_count);
         $display("Recovery events  : %0d", recovery_count);
         $display("Fatal faults     : %0d", fatal_count);
+        $display("----------------------------------------");
+        $display("FUNCTIONAL COVERAGE SUMMARY");
+        $display("State RESET samples       : %0d", cov_reset);
+        $display("State TRAINING samples    : %0d", cov_training);
+        $display("State ACTIVE samples      : %0d", cov_active);
+        $display("State RECOVERY samples    : %0d", cov_recovery);
+        $display("State FAILED samples      : %0d", cov_failed);
+        $display("Normal transfer           : %0d", cov_normal_transfer);
+        $display("Receiver stall            : %0d", cov_receiver_stall);
+        $display("Pending packet in recovery: %0d", cov_pending_during_recovery);
+        $display("Successful retraining     : %0d", cov_retrain_success);
+        $display("Reset after failure       : %0d", cov_reset_after_failure);
+        $display("Packet after reset        : %0d", cov_packet_after_reset);
         $display("FAULT-STRESS TESTS PASSED: %0d checks", checks);
         $finish;
     end

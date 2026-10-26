@@ -6,9 +6,9 @@ COMMON_FLAGS := --binary --timing --Wall -sv
 CTRL_RTL := rtl/chiplet_link_ctrl.sv
 PACKET_RTL := rtl/chiplet_packet_channel.sv
 
-.PHONY: all controller packet edges integration random clean
+.PHONY: all controller packet edges integration random faultstress clean
 
-all: controller packet edges integration random
+all: controller packet edges integration random faultstress
 	@echo "======================================"
 	@echo "ALL REGRESSION TESTS PASSED"
 	@echo "======================================"
@@ -47,13 +47,6 @@ random:
 		--Mdir $(BUILD_DIR)/random_obj_dir
 	./$(BUILD_DIR)/random_obj_dir/Vtb_packet_channel_random
 
-clean:
-	rm -rf $(BUILD_DIR)
-
-.PHONY: faultstress
-
-all: faultstress
-
 faultstress:
 	mkdir -p $(BUILD_DIR)/faultstress_obj_dir
 	$(VERILATOR) $(COMMON_FLAGS) --top-module tb_link_fault_stress \
@@ -61,3 +54,6 @@ faultstress:
 		tb/tb_link_fault_stress.sv \
 		--Mdir $(BUILD_DIR)/faultstress_obj_dir
 	./$(BUILD_DIR)/faultstress_obj_dir/Vtb_link_fault_stress
+
+clean:
+	rm -rf $(BUILD_DIR)
