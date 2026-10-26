@@ -49,3 +49,15 @@ random:
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+.PHONY: faultstress
+
+all: faultstress
+
+faultstress:
+	mkdir -p $(BUILD_DIR)/faultstress_obj_dir
+	$(VERILATOR) $(COMMON_FLAGS) --top-module tb_link_fault_stress \
+		$(CTRL_RTL) $(PACKET_RTL) rtl/chiplet_link_top.sv \
+		tb/tb_link_fault_stress.sv \
+		--Mdir $(BUILD_DIR)/faultstress_obj_dir
+	./$(BUILD_DIR)/faultstress_obj_dir/Vtb_link_fault_stress
