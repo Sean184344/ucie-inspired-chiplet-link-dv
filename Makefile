@@ -1,0 +1,46 @@
+VERILATOR ?= verilator
+BUILD_DIR := build
+
+COMMON_FLAGS := --binary --timing --Wall -sv
+
+CTRL_RTL := rtl/chiplet_link_ctrl.sv
+PACKET_RTL := rtl/chiplet_packet_channel.sv
+
+.PHONY: all controller packet edges integration clean
+
+all: controller packet edges integration
+	@echo "======================================"
+	@echo "ALL REGRESSION TESTS PASSED"
+	@echo "======================================"
+
+controller:
+	$(VERILATOR) $(COMMON_FLAGS) \
+		--top-module tb_link_ctrl \
+		$(CTRL_RTL) tb/tb_link_ctrl.sv \
+		--Mdir $(BUILD_DIR)/obj_dir
+	./$(BUILD_DIR)/obj_dir/Vtb_link_ctrl
+
+packet:
+	$(VERILATOR) $(COMMON_FLAGS) \
+		--top-module tb_packet_channel \
+		$(PACKET_RTL) tb/tb_packet_channel.sv \
+		--Mdir $(BUILD_DIR)/packet_obj_dir
+	./$(BUILD_DIR)/packet_obj_dir/Vtb_packet_channel
+
+edges:
+	$(VERILATOR) $(COMMON_FLAGS) \
+		--top-module tb_packet_channel_edges \
+		$(PACKET_RTL) tb/tb_packet_channel_edges.sv \
+		--Mdir $(BUILD_DIR)/edges_obj_dir
+	./$(BUILD_DIR)/edges_obj_dir/Vtb_packet_channel_edges
+
+integration:
+	$(VERILATOR) $(COMMON_FLAGS) \
+		--top-module tb_link_integration \
+		$(CTRL_RTL) $(PACKET_RTL) \
+		rtl/chiplet_link_top.sv tb/tb_link_integration.sv \
+		--Mdir $(BUILD_DIR)/integration_obj_dir
+	./$(BUILD_DIR)/integration_obj_dir/Vtb_link_integration
+
+clean:
+	rm -rf $(BUILD_DIR)
