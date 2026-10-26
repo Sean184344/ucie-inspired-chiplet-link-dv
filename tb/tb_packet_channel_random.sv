@@ -18,7 +18,14 @@ module tb_packet_channel_random;
     logic source_fire = 0;
     integer accepted_count = 0;
     integer received_count = 0;
+    logic stalled_prev = 0;
+    logic [31:0] stalled_data = 0;
 
+    integer stall_cycles = 0;
+    integer stall_events = 0;
+    integer source_idle_cycles = 0;
+    integer max_stall_length = 0;
+    integer current_stall_length = 0;
     logic [31:0] rx_lfsr = 32'h5A3C_91E7;
     logic [31:0] src_lfsr = 32'h1BAD_B002;
 
@@ -46,7 +53,47 @@ module tb_packet_channel_random;
             value[31] ^ value[21] ^ value[1] ^ value[0]
         };
     endfunction
+    // Protocol monitor and lightweight functional coverage.
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            stalled_prev <= 0;
+            current_stall_length <= 0;
+        end else begin
+            // A previously stalled output must remain valid
+            // with the same payload while the link stays active.
+            if (stalled_prev && link_up) begin
+                if (m_valid !== 1'b1)
+                    $fatal(1, "Protocol violation: valid dropped during stall");
 
+                if (m_data !== stalled_data)
+                    $fatal(1, "Protocol violation: payload changed during stall");
+            end
+
+            if (link_up && m_valid && !m_ready) begin
+                stall_cycles <= stall_cycles + 1;
+                current_stall_length <= current_stall_length + 1;
+
+                if (!stalled_prev)
+                    stall_events <= stall_events + 1;
+
+                if (current_stall_length + 1 > max_stall_length)
+                    max_stall_length <= current_stall_length + 1;
+
+                stalled_prev <= 1;
+                stalled_data <= m_data;
+            end else begin
+                stalled_prev <= 0;
+                current_stall_length <= 0;
+            end
+
+            if (link_up && !s_valid)
+                source_idle_cycles <= source_idle_cycles + 1;
+
+            // A transfer must never be exposed while link_up is low.
+            if (!link_up && m_valid)
+                $fatal(1, "Protocol violation: valid asserted while link down");
+        end
+    end
     // Reproducible randomized receiver backpressure.
     initial begin
         forever begin
@@ -132,7 +179,13 @@ module tb_packet_channel_random;
         if (received_count != NUM_PACKETS)
             $fatal(1, "Received %0d packets, expected %0d",
                    received_count, NUM_PACKETS);
-
+        $display("----- Functional Coverage Summary -----");
+        $display("Packets accepted       : %0d", accepted_count);
+        $display("Packets received       : %0d", received_count);
+        $display("Receiver stall cycles  : %0d", stall_cycles);
+        $display("Receiver stall events  : %0d", stall_events);
+        $display("Maximum stall length   : %0d cycles", max_stall_length);
+        $display("Source idle cycles     : %0d", source_idle_cycles);
         $display("PASS: Accepted transactions = %0d", accepted_count);
         $display("PASS: Received transactions = %0d", received_count);
         $display("PASS: Payload integrity and ordering");
