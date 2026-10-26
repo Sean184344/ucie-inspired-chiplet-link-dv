@@ -1,7 +1,7 @@
 VERILATOR ?= verilator
 BUILD_DIR := build
 
-COMMON_FLAGS := --binary --timing --Wall -sv
+COMMON_FLAGS := --binary --timing --Wall --assert -sv
 
 CTRL_RTL := rtl/chiplet_link_ctrl.sv
 PACKET_RTL := rtl/chiplet_packet_channel.sv
@@ -51,7 +51,7 @@ faultstress:
 	mkdir -p $(BUILD_DIR)/faultstress_obj_dir
 	$(VERILATOR) $(COMMON_FLAGS) --top-module tb_link_fault_stress \
 		$(CTRL_RTL) $(PACKET_RTL) rtl/chiplet_link_top.sv \
-		tb/tb_link_fault_stress.sv \
+		tb/chiplet_link_sva.sv tb/tb_link_fault_stress.sv \
 		--Mdir $(BUILD_DIR)/faultstress_obj_dir
 	./$(BUILD_DIR)/faultstress_obj_dir/Vtb_link_fault_stress
 

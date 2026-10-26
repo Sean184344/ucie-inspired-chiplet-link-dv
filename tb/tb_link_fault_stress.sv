@@ -50,6 +50,19 @@ module tb_link_fault_stress;
         .DATA_WIDTH(32)
     ) dut (.*);
 
+    // Bind protocol and link-state assertions to the integrated DUT signals.
+    chiplet_link_sva #(
+        .FAILED_STATE(FAILED)
+    ) sva_checker (
+        .clk       (clk),
+        .rst_n     (rst_n),
+        .link_up   (link_up),
+        .link_state(link_state),
+        .m_valid   (m_valid),
+        .m_ready   (m_ready),
+        .m_data    (m_data)
+    );
+
     // Expected packet order:
     // 1. Normal traffic
     // 2. Traffic queued during recovery
