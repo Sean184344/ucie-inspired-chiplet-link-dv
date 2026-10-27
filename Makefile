@@ -60,17 +60,28 @@ clean:
 
 
 # Intentional assertion failure: verify that the SVA checker detects a violation.
+
 sva-negative:
-	mkdir -p $(BUILD_DIR)/sva_negative_obj_dir
-	$(VERILATOR) $(COMMON_FLAGS) --top-module tb_sva_negative \
-		tb/chiplet_link_sva.sv tb/tb_sva_negative.sv \
-		--Mdir $(BUILD_DIR)/sva_negative_obj_dir
-	@ulimit -c 0; \
-	./$(BUILD_DIR)/sva_negative_obj_dir/Vtb_sva_negative > $(BUILD_DIR)/sva_negative.log 2>&1; status=$$?; \
-	cat $(BUILD_DIR)/sva_negative.log; \
-	if [ $$status -ne 0 ] && grep -Fq "SVA FAIL: m_valid asserted while link is down" $(BUILD_DIR)/sva_negative.log; then \
-		echo "PASS: expected SVA assertion failure detected"; \
-	else \
-		echo "FAIL: expected SVA assertion failure was not detected"; \
-		exit 1; \
-	fi
+	@set -eu; \
+	mkdir -p $(BUILD_DIR); \
+	run_negative_test() { \
+		name="$$1"; tb="$$2"; expected="$$3"; \
+		obj="$(BUILD_DIR)/$${name}_obj_dir"; \
+		log="$(BUILD_DIR)/$${name}.log"; \
+		echo "=== Building $$name ==="; \
+		$(VERILATOR) $(COMMON_FLAGS) --top-module "$$tb" \
+			tb/chiplet_link_sva.sv "tb/$$tb.sv" --Mdir "$$obj"; \
+		echo "=== Running $$name ==="; \
+		set +e; ulimit -c 0; "./$$obj/V$$tb" > "$$log" 2>&1; status=$$?; set -e; \
+		cat "$$log"; \
+		if [ "$$status" -ne 0 ] && grep -Fq "$$expected" "$$log"; then \
+			echo "PASS: $$name detected expected assertion"; \
+		else \
+			echo "FAIL: $$name did not produce the expected assertion"; \
+			return 1; \
+		fi; \
+	}; \
+	run_negative_test sva_negative tb_sva_negative "SVA FAIL: m_valid asserted while link is down"; \
+	run_negative_test sva_stall_negative tb_sva_stall_negative "SVA FAIL: stalled packet payload changed"; \
+	run_negative_test sva_failed_negative tb_sva_failed_negative "SVA FAIL: FAILED state was not sticky"; \
+	echo "ALL SVA NEGATIVE TESTS PASSED"
