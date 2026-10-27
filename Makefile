@@ -6,7 +6,7 @@ COMMON_FLAGS := --binary --timing --Wall --assert -sv
 CTRL_RTL := rtl/chiplet_link_ctrl.sv
 PACKET_RTL := rtl/chiplet_packet_channel.sv
 
-.PHONY: all controller packet edges integration random faultstress clean
+.PHONY: all controller packet edges integration random faultstress sva-negative clean
 
 all: controller packet edges integration random faultstress
 	@echo "======================================"
@@ -57,3 +57,20 @@ faultstress:
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+
+# Intentional assertion failure: verify that the SVA checker detects a violation.
+sva-negative:
+	mkdir -p $(BUILD_DIR)/sva_negative_obj_dir
+	$(VERILATOR) $(COMMON_FLAGS) --top-module tb_sva_negative \
+		tb/chiplet_link_sva.sv tb/tb_sva_negative.sv \
+		--Mdir $(BUILD_DIR)/sva_negative_obj_dir
+	@ulimit -c 0; \
+	./$(BUILD_DIR)/sva_negative_obj_dir/Vtb_sva_negative > $(BUILD_DIR)/sva_negative.log 2>&1; status=$$?; \
+	cat $(BUILD_DIR)/sva_negative.log; \
+	if [ $$status -ne 0 ] && grep -Fq "SVA FAIL: m_valid asserted while link is down" $(BUILD_DIR)/sva_negative.log; then \
+		echo "PASS: expected SVA assertion failure detected"; \
+	else \
+		echo "FAIL: expected SVA assertion failure was not detected"; \
+		exit 1; \
+	fi
