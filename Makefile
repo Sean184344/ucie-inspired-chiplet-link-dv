@@ -6,9 +6,16 @@ COMMON_FLAGS := --binary --timing --Wall --assert -sv
 CTRL_RTL := rtl/chiplet_link_ctrl.sv
 PACKET_RTL := rtl/chiplet_packet_channel.sv
 
-.PHONY: all controller packet edges integration random faultstress sva-negative clean
+.PHONY: all controller packet edges integration random faultstress back-to-back sva-negative clean
 
-all: controller packet edges integration random faultstress
+all: controller packet edges integration random faultstress back-to-back
+
+back-to-back:
+	mkdir -p $(BUILD_DIR)/back_to_back_obj_dir
+	$(VERILATOR) $(COMMON_FLAGS) --top-module tb_packet_channel_back_to_back \
+		$(PACKET_RTL) tb/tb_packet_channel_back_to_back.sv \
+		--Mdir $(BUILD_DIR)/back_to_back_obj_dir
+	./$(BUILD_DIR)/back_to_back_obj_dir/Vtb_packet_channel_back_to_back
 	@echo "======================================"
 	@echo "ALL REGRESSION TESTS PASSED"
 	@echo "======================================"
